@@ -1,0 +1,95 @@
+
+% % % Creates temporal and rate Modulation Transfer Function for a single neuron/channel % % % 
+% tMTF is vector strength vs modulation frequency. 
+% rMTF is average number of spikes (per trial) vs modulation frequency. 
+% INPUTS:(1) "raw" : spikeTimes in seconds {fM}{trial}
+% (2) "fMs" : vector of modulation frequencies (in Hz)
+% (3) "duration" : duration of stimulus in seconds
+% (4) varargin: set to 1 if you want to plot tMTF, set to 2 to plot both
+% tMTF and rMTF. Else leave empty
+% INPUT IS ASSUMED IN SECONDS
+
+% % JACKKNIFE: For each trial, removes single trial and calculates MTFs.
+% % standard deviation reported over N trials
+
+% Created MJRunfeldt April 2015
+% JackKnife update June 2015
+
+function [rMTF,tMTF,rMTF_std,tMTF_std] = ...
+    create_MTF_jackKnife(raw,fMs,duration,varargin)
+
+% raw = data ; fMs = fMods ; duration = 1; % % for troublshoot
+
+for f = 1:length(fMs)
+    modfreq = fMs(f) ; % modulation frequency in seconds
+    nTrials = length(raw{f}) ; % # of trials
+    
+    try
+        allSpikes = cell2mat(raw{f}) ; % all spike times all trials
+    catch
+        allSpikes = cell2mat(raw{f}') ; % cell2mat only likes [1 x N] not [N x 1]
+    end
+        
+% % Jacknife to get STD - remove single trial at a time % % %   
+jtMTF = zeros(1,nTrials); jrMTF = jtMTF ; 
+    for j = 1:nTrials
+        dum = raw{f} ; dum(j) = []; % remove one trial
+        dumSpikes = cell2mat(dum) ; 
+        
+        jtMTF(j) = sqrt(sum(sin(2*pi*modfreq*dumSpikes))^2 + ...
+            sum(cos(2*pi*modfreq*dumSpikes))^2)/length(dumSpikes);
+    
+        jrMTF(j) = length(dumSpikes) / (nTrials*duration) ;
+    end
+    tMTF_std(f) = std(jtMTF); rMTF_std(f) = std(jrMTF) ; % STD of jacknifes
+    %tMTF_semTwo(f) = 2*(std(jtMTF) / sqrt(nTrials-1)); % 2* SEM of jacknifes
+    %rMTF_semTwo(f) = 2*(std(jrMTF) / sqrt(nTrials-1)) ; % 2* SEM of jacknifes
+    
+% % Complete/Actualy MTFs % % %     
+    tMTF(f) = sqrt(sum(sin(2*pi*modfreq*allSpikes))^2 + ...
+            sum(cos(2*pi*modfreq*allSpikes))^2)/length(allSpikes);
+    
+    rMTF(f) = length(allSpikes) / (nTrials*duration) ;
+end % END (f) per modulation frequency
+
+if nargin > 3 & varargin{1} == 1 % plot only tMTF
+f1=figure;shadedLines(log10(fMs),tMTF,tMTF_std,'k')
+set(gca,'xtick',log10(fMs),'xticklabel',num2cell(fMs))
+xlabel('Modulation Frequency (Hz)');ylabel('Vector Strength')
+tt=title('Temporal MTF, +/- std, jackKnife over N trials');
+set(tt,'fontsize',16) ;shg
+
+elseif nargin > 3 & varargin{1} == 2 % plot tMTF and rMTF
+f1=figure;shadedLines(log10(fMs),tMTF,tMTF_std,'k')
+set(gca,'xtick',log10(fMs),'xticklabel',num2cell(fMs))
+xlabel('Modulation Frequency (Hz)');ylabel('Vector Strength')
+tt=title('Temporal MTF, +/- std, jackKnife over N trials');
+set(tt,'fontsize',16)    
+    
+f2=figure;shadedLines(log10(fMs),rMTF,rMTF_std,'c')
+set(gca,'xtick',log10(fMs),'xticklabel',num2cell(fMs))
+xlabel('Modulation Frequency (Hz)');ylabel('Firing Rate (Hz)')
+tt=title('Rate MTF, +/- std, jackKnife over N trials');
+set(tt,'fontsize',16);shg
+
+end
+end % END function
+
+
+% % % Subroutine % % 
+
+function [] = shadedLines(T,mid,wing,mainColor)
+
+bottom = mid-wing; top = mid+wing;
+
+x= [1:length(top), fliplr(1:length(top))];  % samples
+x = T(x);
+
+y = [top, fliplr(bottom)] ;
+
+hold on; set(gca,'color',[0.9 0.9 0.9])
+patch(x,y,mainColor,'facealpha',0.3,'edgecolor','none')
+plot(T,mid,'color',mainColor,'linewidth',4); %xlabel('Time (ms)');
+xlim([T(1) T(end)])
+
+end

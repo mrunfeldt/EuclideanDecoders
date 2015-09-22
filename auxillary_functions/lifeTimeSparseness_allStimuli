@@ -1,0 +1,21 @@
+% LifeTime Sparseness over all stimuli
+% input is binned raster: {stimulus} (trial x time)
+% high value means that more bins are filled
+% low values indicates sparseness
+
+% MJRunfeldt 2015_07_07
+
+function ltS = lifeTimeSparseness_allStimuli(raz)  
+
+%data = SU ;
+
+psth = []; 
+for nFm = 1:length(raz)  % Concat psth over all Stimuli
+    dum = raz{nFm} ;% trial x Time
+    psth = [psth mean(dum,1) ]; 
+end
+    nBins = length(psth) ;
+    
+ltS =   1 - (sum(psth ./ nBins) ^2) / sum(psth ./ nBins) ;
+
+end
